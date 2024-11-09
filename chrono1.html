@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrossFit Timer 1</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #exercise-timer, #rest-timer, #rounds-left {
+            font-size: 300px;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="exercise-timer">00:00:00</div>
+    <div id="rest-timer" style="display: none;">0:00:00</div>
+    <div id="rounds-left" style="display: none;">Tours restants : 0</div>
+
+    <script>
+        let exerciseInterval, restInterval;
+        let isRunning = false;
+        let mode = 'up';
+        let duration = 60;
+        let exerciseTime = 120; // Temps d'exercice par défaut pour EMOM
+        let restTime = 60; // Temps de pause par défaut pour EMOM
+        let rounds = 4; // Nombre de tours par défaut pour EMOM
+        let currentRound = 0;
+
+        function formatTime(seconds) {
+            let minutes = Math.floor(seconds / 60);
+            let remainingSeconds = seconds % 60;
+            return (
+                String(minutes).padStart(2, '0') + ':' +
+                String(remainingSeconds).padStart(2, '0')
+            );
+        }
+
+        function startEMOM() {
+            currentRound = 1;
+            updateRoundDisplay();
+            startExerciseTimer();
+        }
+
+        function startExerciseTimer() {
+            let remainingTime = exerciseTime;
+            document.getElementById('exercise-timer').style.display = 'block';
+            document.getElementById('rest-timer').style.display = 'none';
+
+            exerciseInterval = setInterval(() => {
+                if (remainingTime <= 0) {
+                    clearInterval(exerciseInterval);
+                    startRestTimer();
+                } else {
+                    document.getElementById('exercise-timer').textContent = "Temps d'exercice : " + formatTime(remainingTime);
+                    remainingTime--;
+                }
+            }, 1000);
+        }
+
+        function startRestTimer() {
+            let remainingTime = restTime;
+            document.getElementById('exercise-timer').style.display = 'none';
+            document.getElementById('rest-timer').style.display = 'block';
+
+            restInterval = setInterval(() => {
+                if (remainingTime <= 0) {
+                    clearInterval(restInterval);
+                    if (currentRound < rounds) {
+                        currentRound++;
+                        updateRoundDisplay();
+                        startExerciseTimer();
+                    } else {
+                        document.getElementById('rest-timer').textContent = "Terminé !";
+                    }
+                } else {
+                    document.getElementById('rest-timer').textContent = "Temps de pause : " + formatTime(remainingTime);
+                    remainingTime--;
+                }
+            }, 1000);
+        }
+
+        function updateRoundDisplay() {
+            document.getElementById('rounds-left').style.display = 'block';
+            document.getElementById('rounds-left').textContent = "Tours restants : " + (rounds - currentRound + 1);
+        }
+
+        function stopTimers() {
+            clearInterval(exerciseInterval);
+            clearInterval(restInterval);
+            isRunning = false;
+        }
+
+        const socket = new WebSocket('ws://your-server-address');
+
+// Ajoutez ceci dans la page des chronomètres
+socket.onmessage = (event) => {
+    const config = JSON.parse(event.data);
+
+    if (config.command === 'START') {
+        mode = config.mode;
+        stopTimers();
+        if (mode === 'emom') {
+            exerciseTime = config.exerciseTime;
+            restTime = config.restTime;
+            rounds = config.rounds;
+            startEMOM();
+        } else {
+            // Gérer d'autres modes ici (Up Timer, Down Timer)
+        }
+    } else if (config.command === 'RESET') {
+        stopTimers();
+        document.getElementById('exercise-timer').textContent = "Temps d'exercice : 00:00";
+        document.getElementById('rest-timer').textContent = "Temps de pause : 00:00";
+        document.getElementById('rounds-left').textContent = "Tours restants : 0";
+    }
+};
+
+    </script>
+</body>
+</html>
