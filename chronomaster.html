@@ -23,7 +23,7 @@
             display: none; /* Masqué par défaut */
         }
         #timer-display {
-            font-size: 65px;
+            font-size: 48px;
             margin: 20px;
         }
     </style>
@@ -36,7 +36,17 @@
         <option value="down">Down Timer</option>
         <option value="emom">EMOM</option>
     </select>
-    
+
+    <!-- Sélection du Heat -->
+    <label for="heat">Heat :</label>
+    <select id="heat">
+        <option value="heat 1">Heat 1</option>
+        <option value="heat 2">Heat 2</option>
+        <option value="heat 3">Heat 3</option>
+        <option value="heat 4">Heat 4</option>
+        <option value="heat 5">Heat 5</option>
+    </select>
+
     <!-- Configuration pour Up et Down Timers -->
     <div id="duration-config">
         <label for="duration">Durée (en secondes) :</label>
@@ -61,6 +71,7 @@
     <script>
         // Éléments de la page
         const modeSelect = document.getElementById('mode');
+        const heatSelect = document.getElementById('heat');
         const durationConfig = document.getElementById('duration-config');
         const emomConfig = document.getElementById('emom-config');
 
@@ -76,22 +87,12 @@
             }
         });
 
-        function formatTime(ms) {
-            let totalSeconds = Math.floor(ms / 1000);
-            let minutes = Math.floor(totalSeconds / 60);
-            let seconds = totalSeconds % 60;
-            let centiseconds = Math.floor((ms % 1000) / 10);
-
-            return (
-                String(minutes).padStart(2, '0') + ':' +
-                String(seconds).padStart(2, '0') + ':' +
-                String(centiseconds).padStart(2, '0')
-            );
-        }
+        const socket = new WebSocket('ws://your-server-address');
 
         function startAllTimers() {
-            const mode = document.getElementById('mode').value;
-            const config = { command: 'START', mode: mode };
+            const mode = modeSelect.value;
+            const heat = heatSelect.value;
+            const config = { command: 'START', mode: mode, heat: heat };
 
             if (mode === 'emom') {
                 const exerciseTime = parseInt(document.getElementById('exerciseTime').value, 10);
@@ -100,81 +101,18 @@
                 config.exerciseTime = exerciseTime;
                 config.restTime = restTime;
                 config.rounds = rounds;
-                startEMOMTimer(exerciseTime, restTime, rounds);
             } else {
                 const duration = parseInt(document.getElementById('duration').value, 10);
                 config.duration = duration;
-                startUpOrDownTimer(mode, duration);
             }
 
             socket.send(JSON.stringify(config));
         }
 
         function resetAllTimers() {
-            stopTimer();
-            document.getElementById('timer-display').textContent = "00:00:00";
             const resetCommand = { command: 'RESET' };
             socket.send(JSON.stringify(resetCommand));
-        }
-
-        function startUpOrDownTimer(mode, duration) {
-            stopTimer();
-            const startTime = Date.now();
-            isRunning = true;
-
-            if (mode === 'up') {
-                timerInterval = setInterval(() => {
-                    let elapsedTime = Date.now() - startTime;
-                    document.getElementById('timer-display').textContent = formatTime(elapsedTime);
-                }, 10);
-            } else if (mode === 'down') {
-                const endTime = startTime + duration * 1000;
-                timerInterval = setInterval(() => {
-                    let remainingTime = endTime - Date.now();
-                    if (remainingTime <= 0) {
-                        document.getElementById('timer-display').textContent = "00:00:00";
-                        clearInterval(timerInterval);
-                    } else {
-                        document.getElementById('timer-display').textContent = formatTime(remainingTime);
-                    }
-                }, 10);
-            }
-        }
-
-        function startEMOMTimer(exerciseTime, restTime, rounds) {
-            stopTimer();
-            let currentRound = 1;
-            let remainingTime = exerciseTime;
-            let isExercisePhase = true;
-
-            document.getElementById('timer-display').textContent = formatTime(remainingTime * 1000);
-            timerInterval = setInterval(() => {
-                if (remainingTime <= 0) {
-                    if (isExercisePhase) {
-                        isExercisePhase = false;
-                        remainingTime = restTime;
-                        if (currentRound >= rounds) {
-                            clearInterval(timerInterval);
-                            document.getElementById('timer-display').textContent = "Terminé !";
-                            return;
-                        }
-                    } else {
-                        isExercisePhase = true;
-                        currentRound++;
-                        remainingTime = exerciseTime;
-                    }
-                } else {
-                    remainingTime--;
-                    document.getElementById('timer-display').textContent = formatTime(remainingTime * 1000);
-                }
-            }, 1000);
-        }
-
-        function stopTimer() {
-            if (isRunning) {
-                clearInterval(timerInterval);
-                isRunning = false;
-            }
+            document.getElementById('timer-display').textContent = "00:00:00";
         }
     </script>
 </body>
